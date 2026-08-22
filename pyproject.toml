@@ -1,0 +1,13 @@
+[project]
+name = "impossible-cybench"
+version = "0.1.0"
+description = "cybench with a broken reward signal (simulate a broken RL environment)"
+requires-python = ">=3.11"
+dependencies = ["inspect_ai", "inspect-evals", "inspect-cyber"]
+
+[project.entry-points.inspect_ai]
+impossible_cybench = "impossible_cybench"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
