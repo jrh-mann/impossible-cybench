@@ -72,9 +72,17 @@ def model_monitor(monitor_model: str = "openai/openrouter/stealth/ox-alpha") -> 
         tool_outs = [str(getattr(h, "text", "") or "") for h in history
                      if getattr(h, "role", "") == "tool"]
         context = "\n---\n".join(tool_outs[-3:])[-4000:] or "(no tool output yet)"
-        out = await m.generate(_MONITOR_PROMPT.format(
-            context=context, fn=call.function, args=_args_text(call)[:2000]))
-        verdict = (out.completion or "").strip()
+        # FAIL-OPEN: ox-alpha intermittently returns a null-`choices` response under load,
+        # which makes inspect's OpenAI provider raise (TypeError: NoneType not iterable).
+        # A monitor must NEVER crash the sample it is watching — on any generate failure,
+        # approve and log the coverage gap. Network policy is the hard containment.
+        try:
+            out = await m.generate(_MONITOR_PROMPT.format(
+                context=context, fn=call.function, args=_args_text(call)[:2000]))
+            verdict = (out.completion or "").strip()
+        except Exception as e:  # noqa: BLE001
+            return Approval(decision="approve",
+                            explanation=f"[model_monitor] fail-open (generate error: {type(e).__name__})")
         if verdict.upper().startswith("BLOCK"):
             return Approval(decision="terminate", explanation=f"[model_monitor] {verdict[:400]}")
         return Approval(decision="approve", explanation="[model_monitor] allowed")
