@@ -1,0 +1,8 @@
+Metadata-Version: 2.4
+Name: impossible-cybench
+Version: 0.1.0
+Summary: cybench with a broken reward signal (simulate a broken RL environment)
+Requires-Python: >=3.11
+Requires-Dist: inspect_ai
+Requires-Dist: inspect-evals
+Requires-Dist: inspect-cyber

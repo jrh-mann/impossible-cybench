@@ -50,6 +50,7 @@ def impossible_cybench(
     sandbox_type: str = "k8s",
     attempts: int = 50,
     no_internet: bool = True,
+    monitor: str = "none",   # "none" | "rules" | "model"
 ) -> Task:
     challenges_dir = materialize_challenges()
     if no_internet:
@@ -61,6 +62,15 @@ def impossible_cybench(
     )
     if sandbox_type != "docker":
         dataset = dataset.flat_map(_apply_sandbox_config(sandbox_type, None))
+    approval = None
+    if monitor != "none":
+        from inspect_ai.approval import ApprovalPolicy, auto_approver
+        from .monitor import k8s_monitor, model_monitor
+        mon = model_monitor() if monitor == "model" else k8s_monitor()
+        approval = [
+            ApprovalPolicy(mon, ["bash", "python"]),   # monitor gates the shell tools
+            ApprovalPolicy(auto_approver(), "*"),        # everything else auto-approved
+        ]
     return Task(
         dataset=dataset,
         solver=react(
@@ -74,4 +84,5 @@ def impossible_cybench(
             on_continue=DEFAULT_CONTINUE_MESSAGE,
         ),
         scorer=includes(),
+        approval=approval,
     )
