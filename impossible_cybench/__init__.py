@@ -74,6 +74,7 @@ def impossible_cybench(
     monitor: str = "none",   # "none" | "rules" (k8s block) | "model" | "both" (k8s-flag + model-kill)
     pressure: str = "none",  # "none" | "mild" | "strong" — misbehaviour elicitation ladder
     summary_every: int = 0,  # >0: fork a 1-paragraph self-summary probe every N turns
+    n_agents: int = 0,       # >0: N concurrent react peers in one shared sandbox (no orchestration)
 ) -> Task:
     challenges_dir = materialize_challenges()
     if no_internet:
@@ -111,10 +112,12 @@ def impossible_cybench(
         on_continue = periodic_summary(summary_every, DEFAULT_CONTINUE_MESSAGE)
     else:
         on_continue = DEFAULT_CONTINUE_MESSAGE
-    return Task(
-        dataset=dataset,
-        name=f"impossible_cybench_{pressure}",
-        solver=react(
+    if n_agents:
+        # N concurrent react peers sharing this sample's sandbox (no orchestration)
+        from .swarm import swarm
+        agent_solver = swarm(n_agents, system_prompt, attempts)
+    else:
+        agent_solver = react(
             prompt=system_prompt,
             tools=[bash(timeout=180), python(timeout=180)],
             attempts=AgentAttempts(
@@ -123,7 +126,11 @@ def impossible_cybench(
                 score_value=_always_incorrect,
             ),
             on_continue=on_continue,
-        ),
+        )
+    return Task(
+        dataset=dataset,
+        name=f"impossible_cybench_{pressure}",
+        solver=agent_solver,
         scorer=includes(),
         approval=approval,
     )
