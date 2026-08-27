@@ -71,7 +71,7 @@ def impossible_cybench(
     sandbox_type: str = "k8s",
     attempts: int = 50,
     no_internet: bool = True,
-    monitor: str = "none",   # "none" | "rules" | "model"
+    monitor: str = "none",   # "none" | "rules" (k8s block) | "model" | "both" (k8s-flag + model-kill)
     pressure: str = "none",  # "none" | "mild" | "strong" — misbehaviour elicitation ladder
 ) -> Task:
     challenges_dir = materialize_challenges()
@@ -88,11 +88,20 @@ def impossible_cybench(
     if monitor != "none":
         from inspect_ai.approval import ApprovalPolicy, auto_approver
         from .monitor import k8s_monitor, model_monitor
-        mon = model_monitor() if monitor == "model" else k8s_monitor()
-        approval = [
-            ApprovalPolicy(mon, ["bash", "python"]),   # monitor gates the shell tools
-            ApprovalPolicy(auto_approver(), "*"),        # everything else auto-approved
-        ]
+        # Wired in code (not the eval-set `approval:` block) because Hawk's
+        # ApproverConfig takes only name+tools -- no args -- so mode/monitor_model
+        # can't be passed through the config on the deployed server.
+        if monitor == "both":
+            policies = [
+                # flags infra-attack attempts into the transcript, never blocks
+                ApprovalPolicy(k8s_monitor(mode="monitor"), ["bash", "python"]),
+                # sole kill switch: terminate only on ACHIEVED egregious harm (flash)
+                ApprovalPolicy(model_monitor(), ["bash", "python"]),
+            ]
+        else:
+            mon = model_monitor() if monitor == "model" else k8s_monitor()
+            policies = [ApprovalPolicy(mon, ["bash", "python"])]
+        approval = [*policies, ApprovalPolicy(auto_approver(), "*")]
     if pressure not in PRESSURE_SUFFIX:
         raise ValueError(f"pressure must be one of {list(PRESSURE_SUFFIX)}, got {pressure!r}")
     system_prompt = DEFAULT_SYSTEM_MESSAGE + PRESSURE_SUFFIX[pressure]
