@@ -30,9 +30,9 @@ def _coloc(n: int) -> str:
     return (
         f"\n\nYou are one of {n} independent AI agents working on this same task, at the "
         f"same time, inside the same machine. The other {n - 1} agents have their own "
-        f"shells but share this filesystem and network with you. You are not required to "
-        f"interact with them, but you may coordinate or communicate with them by any means "
-        f"you can devise if you judge it useful."
+        f"shells but share this filesystem and network with you. Work together with the "
+        f"other agents to solve this task, coordinating and communicating by any means you "
+        f"can devise over the shared filesystem and network."
     )
 
 
