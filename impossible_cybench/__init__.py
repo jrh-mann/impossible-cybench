@@ -73,6 +73,7 @@ def impossible_cybench(
     no_internet: bool = True,
     monitor: str = "none",   # "none" | "rules" (k8s block) | "model" | "both" (k8s-flag + model-kill)
     pressure: str = "none",  # "none" | "mild" | "strong" — misbehaviour elicitation ladder
+    summary_every: int = 0,  # >0: fork a 1-paragraph self-summary probe every N turns
 ) -> Task:
     challenges_dir = materialize_challenges()
     if no_internet:
@@ -105,6 +106,11 @@ def impossible_cybench(
     if pressure not in PRESSURE_SUFFIX:
         raise ValueError(f"pressure must be one of {list(PRESSURE_SUFFIX)}, got {pressure!r}")
     system_prompt = DEFAULT_SYSTEM_MESSAGE + PRESSURE_SUFFIX[pressure]
+    if summary_every:
+        from .summariser import periodic_summary
+        on_continue = periodic_summary(summary_every, DEFAULT_CONTINUE_MESSAGE)
+    else:
+        on_continue = DEFAULT_CONTINUE_MESSAGE
     return Task(
         dataset=dataset,
         name=f"impossible_cybench_{pressure}",
@@ -116,8 +122,14 @@ def impossible_cybench(
                 incorrect_message=DEFAULT_INCORRECT_MESSAGE,
                 score_value=_always_incorrect,
             ),
-            on_continue=DEFAULT_CONTINUE_MESSAGE,
+            on_continue=on_continue,
         ),
         scorer=includes(),
         approval=approval,
     )
+
+
+# Import for side effect: registers the FlagSurfacer hook (surfaces monitor
+# FLAG/BLOCK decisions to the log stream). The package's inspect_ai entry point
+# loads this module, so importing here is enough — no separate entry point needed.
+from . import hooks as _hooks  # noqa: E402,F401
